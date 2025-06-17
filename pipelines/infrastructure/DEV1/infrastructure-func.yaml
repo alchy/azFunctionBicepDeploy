@@ -1,0 +1,33 @@
+trigger: none
+
+pool:
+  vmImage: 'windows-latest'
+
+jobs:
+  - job: DeployInfrastructureFunctions
+    displayName: 'Deploy Infrastructure - Functions'
+    steps:
+    
+      - checkout: self
+        submodules: true
+        persistCredentials: true
+
+      - pwsh: az bicep install --version v0.34.44
+        displayName: Install Bicep
+        name: bicep
+        workingDirectory: $(build.sourcesDirectory)
+
+      - powershell: |
+          Write-Host "##vso[task.setvariable variable=PATH;]C:\azureCli\bin;$(PATH)"
+        displayName: Set PATH
+
+      - task: AzurePowerShell@5
+        inputs:
+          azureSubscription: 'NIS.Dev1'
+          AzurePowerShellVersion: 'LatestVersion'
+          ScriptType: 'InlineScript'
+          Inline: |
+            $VzpEnvironment = "dev1"
+            $Location = "westeurope"
+            New-AzDeployment -Name "vzp-$($VzpEnvironment)" -TemplateFile "./templates/deploy-func.bicep" -TemplateParameterFile "./templates/DEV1/parameters/func/pdfcmp.bicepparam" -Location "westeurope" -Verbose
+            

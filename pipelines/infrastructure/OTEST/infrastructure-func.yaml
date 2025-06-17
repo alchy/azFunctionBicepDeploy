@@ -1,0 +1,43 @@
+trigger: none
+
+pool:
+  vmImage: 'windows-latest'
+
+resources:
+
+jobs:
+  - job: DeployInfrastructureFunctions
+    displayName: 'Deploy Infrastructure - Functions'
+    steps:
+
+      - checkout: self
+        submodules: true
+        persistCredentials: true
+
+      - pwsh: az bicep install --version v0.34.44
+        displayName: Install Bicep
+        name: bicep
+        workingDirectory: $(build.sourcesDirectory)
+
+      - powershell: |
+          Write-Host "##vso[task.setvariable variable=PATH;]C:\azureCli\bin;$(PATH)"
+        displayName: Set PATH
+
+      - task: AzurePowerShell@5
+        inputs:
+          azureSubscription: 'NIS.Otest'
+          AzurePowerShellVersion: 'LatestVersion'
+          ScriptType: 'InlineScript'
+          Inline: |
+            #Set-AzContext -SubscriptionName "NIS.Otest"
+            $VzpEnvironment = "otest"
+            $Location = "westeurope"
+            $TemplatePath = "$(Build.SourcesDirectory)/Infrastructure-Func/"
+            $TemplatePathParameter = "$(Build.SourcesDirectory)/Infrastructure-Func/templates/OTEST/parameters/func/"
+            echo "--- actual directory ---"
+            pwd
+            echo "--- actual TemplatePath ---"
+            echo $TemplatePath 
+            echo "--- actual TemplatePathParameter ---"
+            echo $TemplatePathParameter
+            New-AzDeployment -Name "vzp-$($VzpEnvironment)" -TemplateFile "$TemplatePath/deploy-func.bicep" -TemplateParameterFile "$TemplatePathParameter/func100.bicepparam" -Location "westeurope" -Verbose
